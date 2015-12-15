@@ -1,8 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/python 
 
 import sys
-import os
-import copy
+import os,copy
 import string
 import re
 import gzip
@@ -15,395 +14,381 @@ RMSD_KEY = 'rms'
 FRAC_MAX = 0.95
 FRAC_MIN = 0.05
 discmin = -1.0
-discmax = 1.0
-MINSCORE = -1000  # safecut
+discmax =  1.0
+MINSCORE = -1000 #safecut
 
-if '-dock' in sys.argv:  # docking
-    SCORE_KEY = 'ddg'
-    default_disc_divs = [1.0, 2.0, 5.0]
-    NORMALIZE = False
-    dE = 5.0  # use uniform energy gap
+if '-dock' in sys.argv: #docking
+  SCORE_KEY = 'ddg'
+  default_disc_divs = [1.0,2.0,5.0]
+  NORMALIZE = False
+  dE = 5.0 #use uniform energy gap
 
 elif '-loop' in sys.argv:
-    SCORE_KEY = 'score'
-    default_disc_divs = [1.0, 1.5, 2.0, 2.5, 3.0]
-    NORMALIZE = False
-    dE = 5.0  # use uniform energy gap
+  SCORE_KEY = 'score'
+  default_disc_divs = [1.0,1.5,2.0,2.5,3.0]
+  NORMALIZE = False
+  dE = 5.0 #use uniform energy gap
 
-else:  # for monomeric structure prediction
-    SCORE_KEY = 'score'
-    default_disc_divs = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 6.0]
-    NORMALIZE = True
+else: #for monomeric structure prediction
+  SCORE_KEY = 'score'
+  default_disc_divs = [1.0,1.5,2.0,2.5,3.0,4.0,6.0]
+  NORMALIZE = True
+
+def calculate_disc( argv, disc_divs = default_disc_divs  ):
+  non_numerical_cols = [
+  "aln_id",
+  "user_tag",
+  "description",
+  "usid",
+  "husid",
+  "__file__"
+  ];
+
+  if len(argv) < 2:
+    sys.stderr.write("CODE ERROR") 
+    sys.exit(1)
+
+  ## Analyse options 
+
+  showfilename = False
+  multifilemode = False
+  summode = False
+  normalize_sums = False
+  normalize_all = False
+  normalize_all_but_key  = False
+  offset_sums = False
+  offset_all = False
+  discriminate = False
+
+  for arg in argv[1:]:
+    if arg == "-": 
+      multifilemode = True
+      continue
 
 
-def calculate_disc(argv, disc_divs=default_disc_divs):
-    non_numerical_cols = [
-        "aln_id",
-        "user_tag",
-        "description",
-        "usid",
-        "husid",
-        "__file__"
-    ]
+  columnbreak = False
 
-    if len(argv) < 2:
-        sys.stderr.write("CODE ERROR")
-        sys.exit(1)
+  columns = []
+  files = []
+  sums = []
 
-    # Analyse options
 
-    showfilename = False
-    multifilemode = False
-    summode = False
-    normalize_sums = False
-    normalize_all = False
-    normalize_all_but_key = False
-    offset_sums = False
-    offset_all = False
-    discriminate = False
+  next_sum_type = ""
 
-    for arg in argv[1:]:
-        if arg == "-":
-            multifilemode = True
-            continue
+  # arguments made by Mike, not using...
+  for arg in argv[1:]:
+    if arg == "-o": 
+      offset_all= True
+      continue
+    if arg == "-os": 
+      offset_sums = True
+      continue
+    if arg == "-d": 
+      discriminate = True
+      normalize_all = True
+      normalize_all_but_key = True
+      continue
+    if arg == "-n": 
+      normalize_all = True
+      continue
+    if arg == "-nk": 
+      normalize_all = True
+      normalize_all_but_key = True
+      continue
+    if arg == "-ns": 
+      normalize_sums = True
+      continue
+    if arg == "-f": 
+      showfilename = True
+      continue
+    if arg == "-": 
+      columnbreak = True
+      continue
+    
+    if not columnbreak:
+      files.append( arg )
+      if not multifilemode:
+        columnbreak = True
+      continue
 
-    columnbreak = False
+    if arg[0] == '-' or arg[0] == '+' or arg[0] == '.' or (arg[0] >= '0' and arg[0] <= '9'):
+      next_sum_type = arg
+      summode = True
+      continue
 
-    columns = []
-    files = []
-    sums = []
-
+    column_name = arg
+    sum_type = next_sum_type
+    columns.append( ( column_name, sum_type ) )
+    
     next_sum_type = ""
 
-    # arguments made by Mike, not using...
-    for arg in argv[1:]:
-        if arg == "-o":
-            offset_all = True
-            continue
-        if arg == "-os":
-            offset_sums = True
-            continue
-        if arg == "-d":
-            discriminate = True
-            normalize_all = True
-            normalize_all_but_key = True
-            continue
-        if arg == "-n":
-            normalize_all = True
-            continue
-        if arg == "-nk":
-            normalize_all = True
-            normalize_all_but_key = True
-            continue
-        if arg == "-ns":
-            normalize_sums = True
-            continue
-        if arg == "-f":
-            showfilename = True
-            continue
-        if arg == "-":
-            columnbreak = True
-            continue
+  if len(columns) == 0: columns = [(RMSD_KEY,''), (SCORE_KEY,'') ] 
 
-        if not columnbreak:
-            files.append(arg)
-            if not multifilemode:
-                columnbreak = True
-            continue
+  final_data = []
 
-        if arg[
-                0] == '-' or arg[0] == '+' or arg[0] == '.' or (arg[0] >= '0' and arg[0] <= '9'):
-            next_sum_type = arg
-            summode = True
-            continue
 
-        column_name = arg
-        sum_type = next_sum_type
-        columns.append((column_name, sum_type))
+  ## now iterate through files and print columns etc..
+  for filename in files:
 
-        next_sum_type = ""
+    ## gzip/bzip support
+    lines = []
+    if( filename[-3:] == ".gz" ): ## gzipped
+      file = gzip.open(filename,"r")
+      lines = string.split(file.read(),"\n")
+    elif( filename[-4:] == ".bz2" ): ## gzipped
+      lines = bz2.BZ2File( filename,"r").readlines()  
+    else: ## plain text
+      file = open(filename,"r")
+      lines = string.split(file.read(),"\n")
+    
+    
+    donetitles = False
+    names = []
+    for arg,sumtype in columns:
+      names.append((arg,-1))
 
-    if len(columns) == 0:
-        columns = [(RMSD_KEY, ''), (SCORE_KEY, '')]
+    for (i,(n,j)) in enumerate(names):
+      names[i] = (string.lower(n), j)
+     
+    if len(names)<=0:  
+      sys.stderr.write("Warning: no columns names supplied: defaulting to rms vs score\n")
+      names.append( (SCORE_KEY, -1) ) 
+      names.append( (RMSD_KEY, -1) ) 
 
-    final_data = []
 
-    # now iterate through files and print columns etc..
-    for filename in files:
+    for number,l in enumerate(lines):
+      token = string.split(l)
 
-        # gzip/bzip support
-        lines = []
-        if(filename[-3:] == ".gz"):  # gzipped
-            file = gzip.open(filename, "r")
-            lines = string.split(file.read(), "\n")
-        elif(filename[-4:] == ".bz2"):  # gzipped
-            lines = bz2.BZ2File(filename, "r").readlines()
-        else:  # plain text
-            file = open(filename, "r")
-            lines = string.split(file.read(), "\n")
+      if len(token) <= 0: continue
+      ## SCORE LINE HEADERS
+      if not donetitles and token[0] == "SCORE:":
+        ## look for names
+        
+        for ti,t in enumerate(token):
+          for (i,(n,j)) in enumerate(names):
+            if string.lower(t) == n:  ## if names match
+              (existing_n, existing_ti) = names[i];
+              if( existing_ti < 0):
+                names[i] = (n,ti)  ## remember index
+                
+        Error = False
+        for i,(n,j) in enumerate(names):
+          if n == "__file__": ## special column
+            names[i] = (n, -1 )  
+          elif j < 0:
+            sys.stderr.write("Error: Cannot find column named '%s' in '%s' \n"%(n,filename) )
+            Error = True
 
-        donetitles = False
-        names = []
-        for arg, sumtype in columns:
-            names.append((arg, -1))
+        if Error: sys.exit(1)
+        donetitles = True
+        continue
+       
+      ## SCORE LINE
+      if token[0] == "SCORE:":
+        token = string.split(l)
+        brokenline = False
+        for (n,i) in names: 
+          if i >= len( token ):
+            brokenline = True
+            continue  
+        if brokenline : continue
+        
+        ## Check columns for correctness. Allow only special columns to have 
+        # non-numerical values ( see array at the top of this code file)  
+        for (n,i) in names:
+          ## Figure out if the tag is an official non-numeric one
+          is_nonnumtag = False
+          for nonnumtags in non_numerical_cols:
+            if n == nonnumtags:
+              is_nonnumtag = True
+              break
+          if is_nonnumtag: break
 
-        for (i, (n, j)) in enumerate(names):
-            names[i] = (string.lower(n), j)
+          ## if we're here, the tag is considered a numeric one and thus must pass the float conversion test
+          try:
+            t = float( token[i] )
+          except:
+            ## if it does not then ignore this line - we assume it's corrupted
+            brokenline = True;    
+        
+        ## Ignore broken lines!
+        if brokenline : continue
+        
+        ## Ok, if we're here, the line is clean and we can go ahead to extract the data
+        newdataline = dict();
 
-        if len(names) <= 0:
-            sys.stderr.write(
-                "Warning: no columns names supplied: defaulting to rms vs score\n")
-            names.append((SCORE_KEY, -1))
-            names.append((RMSD_KEY, -1))
+        # now actuall extract the data into an array
+        for (n,i) in names:
+          if n == "__file__":   
+            ## record the filename as "data"
+            newdataline[ n ] = filename
+          else:
+            ## extract the data itself
+            newdataline[ n ] = token[i]
+          #sys.stdout.write("%10s "%token[i]) 
+        #sys.stdout.write("\n")
+        
+        
+        ## and append that array to the overall data stack
+        final_data.append( newdataline )  
 
-        for number, l in enumerate(lines):
-            token = string.split(l)
 
-            if len(token) <= 0:
-                continue
-            # SCORE LINE HEADERS
-            if not donetitles and token[0] == "SCORE:":
-                # look for names
+  ################################################
 
-                for ti, t in enumerate(token):
-                    for (i, (n, j)) in enumerate(names):
-                        if string.lower(t) == n:  # if names match
-                            (existing_n, existing_ti) = names[i]
-                            if(existing_ti < 0):
-                                names[i] = (n, ti)  # remember index
+  # Now print combined data
 
-                Error = False
-                for i, (n, j) in enumerate(names):
-                    if n == "__file__":  # special column
-                        names[i] = (n, -1)
-                    elif j < 0:
-                        sys.stderr.write(
-                            "Error: Cannot find column named '%s' in '%s' \n" %
-                            (n, filename))
-                        Error = True
+  combined_data = []
 
-                if Error:
-                    sys.exit(1)
-                donetitles = True
-                continue
+  for l in final_data:
+    sum = 0
+    sumactive = False
 
-            # SCORE LINE
-            if token[0] == "SCORE:":
-                token = string.split(l)
-                brokenline = False
-                for (n, i) in names:
-                    if i >= len(token):
-                        brokenline = True
-                        continue
-                if brokenline:
-                    continue
+    new_combined_data_line = [] 
 
-                # Check columns for correctness. Allow only special columns to have
-                # non-numerical values ( see array at the top of this code
-                # file)
-                for (n, i) in names:
-                    # Figure out if the tag is an official non-numeric one
-                    is_nonnumtag = False
-                    for nonnumtags in non_numerical_cols:
-                        if n == nonnumtags:
-                            is_nonnumtag = True
-                            break
-                    if is_nonnumtag:
-                        break
+    for (n,i) in columns:
+      
+      if i == '':
+        if sumactive:
+          #sys.stdout.write("%10s "%sum )
+          new_combined_data_line.append( ("", sum  ) )
+          sum = 0
+          sumactive = False
 
-                    # if we're here, the tag is considered a numeric one and
-                    # thus must pass the float conversion test
-                    try:
-                        t = float(token[i])
-                    except:
-                        # if it does not then ignore this line - we assume it's
-                        # corrupted
-                        brokenline = True
+        #sys.stdout.write("%10s "%l[ n ])
+        new_combined_data_line.append( ( n, l[ n ] ) )
+      else:
+        sum += float(l[ n ]) * float(i)
+        sumactive = True
 
-                # Ignore broken lines!
-                if brokenline:
-                    continue
-
-                # Ok, if we're here, the line is clean and we can go ahead to
-                # extract the data
-                newdataline = dict()
-
-                # now actuall extract the data into an array
-                for (n, i) in names:
-                    if n == "__file__":
-                        # record the filename as "data"
-                        newdataline[n] = filename
-                    else:
-                        # extract the data itself
-                        newdataline[n] = token[i]
-                    #sys.stdout.write("%10s "%token[i])
-                # sys.stdout.write("\n")
-
-                # and append that array to the overall data stack
-                final_data.append(newdataline)
-
-    ################################################
-
-    # Now print combined data
-
-    combined_data = []
-
-    for l in final_data:
+    if sumactive:
+        #sys.stdout.write("%10s "%sum )
+        new_combined_data_line.append( ("", sum ) )
         sum = 0
         sumactive = False
 
-        new_combined_data_line = []
+    combined_data.append( new_combined_data_line )
 
-        for (n, i) in columns:
+  range_data = dict()
 
-            if i == '':
-                if sumactive:
-                    #sys.stdout.write("%10s "%sum )
-                    new_combined_data_line.append(("", sum))
-                    sum = 0
-                    sumactive = False
+  for l in combined_data:
+    for (n,i) in l:
+      if range_data.get( n ): range_data[n].append( float(i) )
+      else: range_data[n] = [ i ];
 
-                #sys.stdout.write("%10s "%l[ n ])
-                new_combined_data_line.append((n, l[n]))
-            else:
-                sum += float(l[n]) * float(i)
-                sumactive = True
+  perc_high = dict()
+  perc_low  = dict()
 
-        if sumactive:
-                #sys.stdout.write("%10s "%sum )
-            new_combined_data_line.append(("", sum))
-            sum = 0
-            sumactive = False
+  disc_lowest = [ dict(), dict() ] 
 
-        combined_data.append(new_combined_data_line)
+  for key in range_data.keys():
+    range_data[key].sort()
+    perc_high[key] = float(range_data[key][ int( len( range_data[key] ) * FRAC_MAX)  ])
+    perc_low[key]  = float(range_data[key][ int( len( range_data[key] ) * FRAC_MIN)  ])
 
-    range_data = dict()
+  for l in combined_data:
+    for keyindex,(n,i) in enumerate(l):
+      try: 
+        value =  float(i) 
 
-    for l in combined_data:
-        for (n, i) in l:
-            if range_data.get(n):
-                range_data[n].append(float(i))
-            else:
-                range_data[n] = [i]
+        if normalize_all or ( normalize_sums and n == '' ):
+          #sys.stdout.write("Here: %f %f \n"%( perc_low[ n ], perc_high[ n ] ) )
+          if normalize_all_but_key and keyindex == 0:
+            value = float(i) 
+          else:
+            value = ( float(i) - perc_low[ n ] ) / ( perc_high[ n ] - perc_low[ n ] )    
 
-    perc_high = dict()
-    perc_low = dict()
-
-    disc_lowest = [dict(), dict()]
-
-    for key in range_data.keys():
-        range_data[key].sort()
-        perc_high[key] = float(
-            range_data[key][int(len(range_data[key]) * FRAC_MAX)])
-        perc_low[key] = float(
-            range_data[key][int(len(range_data[key]) * FRAC_MIN)])
-
-    for l in combined_data:
-        for keyindex, (n, i) in enumerate(l):
-            try:
-                value = float(i)
-
-                if normalize_all or (normalize_sums and n == ''):
-                    #sys.stdout.write("Here: %f %f \n"%( perc_low[ n ], perc_high[ n ] ) )
-                    if normalize_all_but_key and keyindex == 0:
-                        value = float(i)
-                    else:
-                        value = (float(i) - perc_low[n]) / \
-                            (perc_high[n] - perc_low[n])
-
-                    # safe guide for strangely low scores (necessary for
-                    # docking interaction energy)
-
-                elif offset_all or (offset_sums and n == ''):
-                    value = (float(i) - perc_low[n])
-                if not discriminate:
-                    sys.stdout.write("%10.3f " % value)
-            except:
-                if not discriminate:
-                    sys.stdout.write("%10s " % i)
-
-        # print l
-        if discriminate:
-            rms = float(l[0][1])
-
-            # safe guide for unrealistic cases
-            if float(l[1][1]) < MINSCORE:
-                continue
-
-            if NORMALIZE:
-                score = (float(l[1][1]) - perc_low[n]) / \
-                    (perc_high[n] - perc_low[n])
-            else:
-                score = (float(l[1][1]) - perc_low[n]) / dE
-
-            for dd in disc_divs:
-                if rms < dd:
-                    bucket_index = 0
-                else:
-                    bucket_index = 1
-                if dd not in disc_lowest[
-                        bucket_index] or score < disc_lowest[bucket_index][dd]:
-                    disc_lowest[bucket_index][dd] = score
-
+          #safe guide for strangely low scores (necessary for docking interaction energy)
+        
+        elif offset_all or ( offset_sums and n == '' ):
+          value = ( float(i) - perc_low[ n ] ) 
         if not discriminate:
-            sys.stdout.write("\n")
+          sys.stdout.write("%10.3f "%value )
+      except:
+        if not discriminate:
+          sys.stdout.write("%10s "%i )
+       
+    #print l
+    if discriminate:
+      rms = float(l[0][1])
 
-    missing_count = 0
-    discs = []
-    for i in disc_divs:
-        if i not in disc_lowest[0] and i not in disc_lowest[1]:
-            discs.append(0.0)
-            continue
-        if i not in disc_lowest[0]:
-            disc_lowest[0][i] = disc_lowest[1][i]
-            missing_count += 1
-        if i not in disc_lowest[1]:
-            disc_lowest[1][i] = disc_lowest[0][i]
-            missing_count += 1
-        # print i, disc_lowest[0][i], disc_lowest[1][i]
-        disc_loc = disc_lowest[0][i] - disc_lowest[1][i]
+      #safe guide for unrealistic cases
+      if float(l[1][1]) < MINSCORE:
+        continue
 
-        discs.append(min(discmax, max(disc_loc, discmin)))
+      if NORMALIZE:
+        score = (float(l[1][1]) - perc_low[ n ] ) / ( perc_high[ n ] - perc_low[ n ] )
+      else:
+        score = (float(l[1][1]) - perc_low[ n ] ) / dE
 
-    return discs, missing_count
+      for dd in disc_divs:
+        if rms < dd:
+          bucket_index = 0
+        else:
+          bucket_index = 1
+        if dd not in disc_lowest[bucket_index] or score < disc_lowest[bucket_index][dd]: 
+          disc_lowest[bucket_index][dd] = score
 
-disc_counts = [0.0 for i in default_disc_divs]
-disc_averages = [0.0 for i in default_disc_divs]
-discs_at_bin = [[] for i in default_disc_divs]
+    if not discriminate:
+      sys.stdout.write("\n")
+
+
+  missing_count = 0
+  discs = []
+  for i in disc_divs:
+    if i not in disc_lowest[0] and  i not in disc_lowest[1]: 
+      discs.append(0.0)
+      continue
+    if i not in disc_lowest[0]: 
+      disc_lowest[0][i] = disc_lowest[1][i]
+      missing_count += 1
+    if i not in disc_lowest[1]: 
+      disc_lowest[1][i] = disc_lowest[0][i]
+      missing_count += 1
+    #print i, disc_lowest[0][i], disc_lowest[1][i]
+    disc_loc = disc_lowest[0][i] - disc_lowest[1][i]
+
+    discs.append( min(discmax,max(disc_loc,discmin)) )
+
+  return discs, missing_count
+
+disc_counts = [ 0.0 for i in default_disc_divs ] 
+disc_averages = [ 0.0 for i in default_disc_divs ]
+discs_at_bin = [ [] for i in default_disc_divs ]
 
 for sc in copy.copy(scs):
-    if not os.path.exists(sc):
-        print 'removed: ', sc
-        scs.remove(sc)
-total = len(scs)
+  if not os.path.exists(sc): 
+    print 'removed: ', sc
+    scs.remove(sc)
+total = len( scs )
 
 for i in scs:
-    if i[0] == '#':
-        continue
-    result = calculate_disc(["sd", i, "-d"])
-    discs = result[0]  # teh first part is the discrimination score array
+  if i[0] == '#':
+    continue
+  result = calculate_disc(["sd",i,"-d"])
+  discs = result[0]  ## teh first part is the discrimination score array 
+  
+  for di,de in enumerate( discs ):
+    if de < 0:
+      disc_counts[di] += 1 
+    disc_averages[di] += de
+    discs_at_bin[di].append(de)
 
-    for di, de in enumerate(discs):
-        if de < 0:
-            disc_counts[di] += 1
-        disc_averages[di] += de
-        discs_at_bin[di].append(de)
-
-    print i, " %5.3f" % (sum(discs) / float(len(discs))), " ".join("% 4.3f" % i for i in discs)
+  print i, " %5.3f"%(sum(discs)/float(len(discs))), " ".join(  "% 4.3f"%i for i in discs  )  
 
 median_gaps = []
 for disc in discs_at_bin:
-    disc.sort()
-    med = disc[int(len(disc) * 0.5)]
-    median_gaps.append(med)
+  disc.sort()
+  med = disc[int(len(disc)*0.5)]
+  median_gaps.append(med)
 
-average_disc = sum(disc_counts) / \
-    float(len(default_disc_divs)) * 100.0 / float(total)
-average_gaps = sum(disc_averages) / \
-    float(len(default_disc_divs)) / float(total)
+average_disc = sum( disc_counts  ) / float(len(default_disc_divs)) * 100.0 / float(total)
+average_gaps = sum( disc_averages ) / float(len(default_disc_divs)) / float(total)
 
-print "%5.4f %3.0f %3d - " % (average_gaps, average_disc, total)
-print " ".join("% 4.3f" % (i / float(total)) for i in disc_averages) + " - " + " ".join("%2.0f " % (100 * i / float(total)) for i in disc_counts)
+print "%5.4f %3.0f %3d - "%(average_gaps, average_disc, total)
+print " ".join(  "% 4.3f"%(i/float(total)) for i in disc_averages  ) + " - " + " ".join( "%2.0f "%( 100*i/float(total) ) for i in disc_counts )
 
-# print "%5.4f"%(sum(median_gaps)/len(median_gaps))+" ".join( "% 4.3f"%val
-# for val in median_gaps)
+#print "%5.4f"%(sum(median_gaps)/len(median_gaps))+" ".join( "% 4.3f"%val for val in median_gaps)
+
+
+
+
