@@ -111,7 +111,7 @@ def main(argv):
             tfile.write("source leaprc.ff14SBonlysc\n")
             tfile.write("m = loadpdb @@@.pdb\n")
             tfile.write("set default pbradii mbondi3\n")
-            tfile.write("saveamberparm m @@@.parm7 @@@.rst7\n")
+            tfile.write("saveamberparm m %s.parm7 @@@.rst7\n" % input_pdb)
             tfile.write("quit")
 
         for pdb in no_h_decoys:
