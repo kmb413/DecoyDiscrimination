@@ -2,8 +2,7 @@
 
 path=$1
 pdb=$2
-outpath=$3
-pdb_id=$4
+pdb_id=$3
 
 python ~/CADRES/DecoyDiscrimination/Rosetta/scripts/sidechain_cst_3.py $path'/'$pdb 0.1 0.5
 
@@ -11,7 +10,7 @@ strip_pdb="${pdb%.*}"
 
 const=$path'/'$strip_pdb"_sc.cst"
 
-fulloutpath="/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/min_cst/$outpath"
+fulloutpath="/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/min_cst/$pdb_id"
 mkdir -p $fulloutpath
 cd $fulloutpath
 	
