@@ -56,7 +56,7 @@ do
 	
 		     counter=$((counter+1))
 		     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath $item $outpath'/'$pdb_id $pdb_id &
-		     if (( $counter % 5 == 0 )); 
+		     if (( $counter % 50 == 0 )); 
 			then 
 			wait
 			sleep 5
