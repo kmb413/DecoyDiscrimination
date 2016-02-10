@@ -5,11 +5,11 @@ pdb=$2
 outpath=$3
 pdb_id=$4
 
-python /home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/sidechain_cst_3.py $path'/'$pdb 0.1 0.5
+#python /home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/sidechain_cst_3.py $path'/'$pdb 0.1 0.5
 
 strip_pdb="${pdb%.*}"
 
-const=$path'/'$strip_pdb"_sc.cst"
+#const=$path'/'$strip_pdb"_sc.cst"
 
 
 mkdir -p $outpath
