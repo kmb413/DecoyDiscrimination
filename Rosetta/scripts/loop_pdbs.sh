@@ -6,6 +6,7 @@ outpath=$3
 script=$4
 n_servers=$5
 this_server=$6
+n_cores_per_script=$7
 
 cd $inputpath
 
@@ -33,6 +34,14 @@ begin_index=$(( $n_files_in_group * $this_server))
 counter=0
 
 filecounter=0
+
+n_cores=10
+
+#n_cores_per_script must be a factor of n_cores TODO: output warning if not
+if [ -z ${var+x} ];
+then
+	n_cores=$(( $n_cores / $n_cores_per_script ))
+fi	
 
 #loops thru file of filenames or dir names
 while read item
@@ -65,9 +74,10 @@ do
 	
 		     counter=$((counter+1))
 		     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath $item $outpath'/'$pdb_id $pdb_id &
-		     if (( $counter % 50 == 0 )); 
+		     if (( $counter % $n_cores == 0 )); 
 			then 
 			wait
+			sleep 10
 		     fi
 		fi
 	fi
