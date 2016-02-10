@@ -35,7 +35,7 @@ counter=0
 
 filecounter=0
 
-n_cores=10
+n_cores=50
 
 #n_cores_per_script must be a factor of n_cores TODO: output warning if not
 if [ -z ${var+x} ];
@@ -77,7 +77,6 @@ do
 		     if (( $counter % $n_cores == 0 )); 
 			then 
 			wait
-			sleep 10
 		     fi
 		fi
 	fi
