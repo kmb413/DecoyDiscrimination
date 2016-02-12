@@ -1,3 +1,5 @@
 <native_pdb_id>.pdb is the initial Native PDB we received from Frank.
 <native_pdb_id>_0001.pdb is the initial Native PDB put through an empty XML to obtain the atom types in the last column of the PDB.
 <native_pdb_id>_0001.clean.pdb is the scored/labeled Native PDB with only ATOM lines.
+
+1a2y and 1b0b were removed - they do not have any decoys and there are heteroatoms in the natives.
