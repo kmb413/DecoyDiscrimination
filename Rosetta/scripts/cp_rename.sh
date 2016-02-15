@@ -2,6 +2,8 @@
 
 dir=$1
 
+cd $dir
+
 for subdir in $(ls -l | grep '^d' | awk '{print $9}')
 do
 
