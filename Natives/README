@@ -3,3 +3,5 @@
 <native_pdb_id>_0001.clean.pdb is the scored/labeled Native PDB with only ATOM lines.
 
 1a2y and 1b0b were removed - they do not have any decoys and there are heteroatoms in the natives.
+2a28 was also removed as it does not have any decoys either.
+1iib in set1 was fetched from the pdb
