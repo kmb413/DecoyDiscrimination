@@ -11,7 +11,7 @@ do
 
 	for scorefile in $(ls *.sc)
 	do
-		cp $scorefile '../'$subdir'_'$scorefile
+		cp $scorefile '../'$subdir'.sc'
 	done
 	
 	cd ../
