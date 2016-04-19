@@ -1,12 +1,19 @@
 #!/bin/bash
 
+if [ "$1" == "-h" ]; then
+  echo "Usage: <inputpath> <filepattern> <outpath> <abs_outpath> <script> <n_servers> <this_server> <n_cores_per_script>"
+  echo "Sample: /home/arubenstein/CADRES/DecoyDiscrimination/decoys.set1.init/1vkk/ *.pdb /home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/relax/decoys.set1/1vkk/ 1 relax.sh 1 1 1"
+  exit 0
+fi
+
 inputpath=$1
 filepattern=$2
 outpath=$3
-script=$4
-n_servers=$5
-this_server=$6
-n_cores_per_script=$7
+abs_outpath=$4
+script=$5
+n_servers=$6
+this_server=$7
+n_cores_per_script=$8
 
 cd $inputpath
 
@@ -38,7 +45,7 @@ filecounter=0
 n_cores=50
 
 #n_cores_per_script must be a factor of n_cores TODO: output warning if not
-if [ -z ${var+x} ];
+if [ -z ${n_cores_per_script} ];
 then
 	n_cores=$(( $n_cores / $n_cores_per_script ))
 fi	
@@ -54,8 +61,15 @@ do
         then
 
 		#set pdb_id
-                pdb_id=${item:0:4}
+                pdb_id="${item%%.*}"
 
+ 		if [[ $abs_outpath -eq "1" ]]
+		then
+			final_outpath=$outpath
+		else
+			final_outpath=$outpath'/'$pdb_id
+		fi
+			
 		#if looping thru dirs then loop thru files inside
 		if [[ $second_loop -eq "1" ]]
 		then
@@ -63,19 +77,19 @@ do
 			for pdb in $(ls *.pdb)
 			do
 			     counter=$((counter+1))
-			     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath'/'$item $pdb $outpath'/'$pdb_id $pdb_id &
-			     if (( $counter % 50 == 0 ));
+			     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath'/'$item $pdb $final_outpath $pdb_id &
+			     if (( $counter % $n_cores == 0 ));
 				then
 				wait
-				fi
+			     fi
 			done
                 	cd $inputpath
 		else
 	
 		     counter=$((counter+1))
-		     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath $item $outpath'/'$pdb_id $pdb_id &
+		     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath $item $final_outpath $pdb_id &
 		     if (( $counter % $n_cores == 0 )); 
-			then 
+			then
 			wait
 		     fi
 		fi
