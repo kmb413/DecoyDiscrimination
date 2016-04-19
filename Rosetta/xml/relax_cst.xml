@@ -19,7 +19,7 @@
 </APPLY_TO_POSE>
 
       <PROTOCOLS>
-              Add mover_name=coord_cst/>
+              <Add mover_name=coord_cst/>
 	      <Add mover_name=fastrelax/>        
       </PROTOCOLS>
 </ROSETTASCRIPTS>
