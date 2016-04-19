@@ -19,5 +19,5 @@ cd $outpath
 grep -sq "reported success" $strip_pdb'_relax.log' 
 if [ $? -gt 0 ]; then
 	
-	~/Rosetta/main/source/bin/rosetta_scripts.static.linuxgccrelease -database ~/Rosetta/main/database -nstruct 5 -ex1 -ex2 -extrachi_cutoff 1 -use_input_sc -s $path'/'$pdb -parser:protocol ~/CADRES/DecoyDiscrimination/Rosetta/xml/relax_cst.xml -score:weights talaris2014_cst -overwrite -constraints:cst_fa_file $const  > $strip_pdb'_relax.log' 
+	~/Rosetta/main/source/bin/rosetta_scripts.static.linuxgccrelease -database ~/Rosetta/main/database -nstruct 5 -ex1 -ex2 -extrachi_cutoff 1 -use_input_sc -s $path'/'$pdb -parser:protocol ~/CADRES/DecoyDiscrimination/Rosetta/xml/relax_cst.xml -score:weights talaris2014_cst -overwrite -constraints:cst_file $const  > $strip_pdb'_relax.log' 
 fi
