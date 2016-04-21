@@ -12,8 +12,8 @@ strip_pdb="${pdb%.*}"
 const=$path'/'$strip_pdb"_sc.cst"
 
 
-mkdir -p $outpath
-cd $outpath
+mkdir -p $outpath'/'$strip_pdb
+cd $outpath'/'$strip_pdb
 
 #loop so that relax occurs 100 times
 grep -sq "reported success" $strip_pdb'_relax.log' 
