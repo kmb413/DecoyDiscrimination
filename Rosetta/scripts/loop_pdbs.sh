@@ -13,7 +13,8 @@ abs_outpath=$4
 script=$5
 n_servers=$6
 this_server=$7
-n_cores_per_script=$8
+scorefxn=$8
+n_cores_per_script=$9
 
 cd $inputpath
 
@@ -65,9 +66,9 @@ do
 
  		if [[ $abs_outpath -eq "1" ]]
 		then
-			final_outpath=$outpath
+			final_outpath=$outpath'/'$scorefxn
 		else
-			final_outpath=$outpath'/'$pdb_id
+			final_outpath=$outpath'/'$scorefxn'/'$pdb_id
 		fi
 			
 		#if looping thru dirs then loop thru files inside
@@ -77,7 +78,7 @@ do
 			for pdb in $(ls *.pdb)
 			do
 			     counter=$((counter+1))
-			     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath'/'$item $pdb $final_outpath $pdb_id &
+			     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath'/'$item $pdb $final_outpath $pdb_id $scorefxn &
 			     if (( $counter % $n_cores == 0 ));
 				then
 				wait
@@ -87,7 +88,7 @@ do
 		else
 	
 		     counter=$((counter+1))
-		     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath $item $final_outpath $pdb_id &
+		     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $inputpath $item $final_outpath $pdb_id $scorefxn &
 		     if (( $counter % $n_cores == 0 )); 
 			then
 			wait
