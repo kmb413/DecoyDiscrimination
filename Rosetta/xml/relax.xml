@@ -7,6 +7,8 @@
 
       </TASKOPERATIONS>
       <FILTERS>      
+        <Rmsd name=rmsd threshold=100 superimpose=1 >
+        </Rmsd>
       </FILTERS>
 
       <MOVERS>
@@ -20,5 +22,6 @@
 
       <PROTOCOLS>
 	      <Add mover_name=fastrelax/>        
+	      <Add filter_name=rmsd/>
       </PROTOCOLS>
 </ROSETTASCRIPTS>
