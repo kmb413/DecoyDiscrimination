@@ -90,7 +90,8 @@ do
 			for pdb in $(ls *.pdb)
 			do
 			     counter=$((counter+1))
-			     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $final_inpath $pdb $final_outpath $pdb_id $scorefxn &
+			     strip_pdb="${pdb%.*}"
+			     eval nohup "/home/arubenstein/CADRES/DecoyDiscrimination/Rosetta/scripts/$script" $final_inpath $pdb $final_outpath'/'$strip_pdb $pdb_id $scorefxn &
 			     if (( $counter % $n_cores == 0 ));
 				then
 				wait
@@ -109,4 +110,37 @@ do
 	fi
 done < files_list.txt
 
+wait
+
+filecounter=0
+
+#postprocessing
+while read item
+do
+
+    filecounter=$(( $filecounter + 1 ))
+
+    #if filecounter is between beginning and end indices
+    if [ $filecounter -gt $begin_index ] && [ $filecounter -le $end_index ];
+    then
+
+	    #set inner_dir_name
+	    inner_dir_name="${item%%.*}"
+
+	    final_outpath=${outpath/SCORE/$scorefxn}
+	    if [[ $second_loop -eq "1" ]]
+	    then
+		inner_dir_name="${item%%.*}"
+		final_outpath=$final_outpath'/'$inner_dir_name
+	    fi
+
+	    cd $final_outpath
+	    cat */score.sc | awk ' (NR == 1 || NR == 2) || ($1 != "SEQUENCE:" && $2 ~ /[0-9]/) {print}' > final_score.sc
+
+    fi
+
+done < files_list.txt
+
+
+cd $inputpath
 rm files_list.txt
