@@ -4,6 +4,7 @@ path=$1
 pdb=$2
 outpath=$3
 pdb_id=$4
+scorefxn=$5
 
 strip_pdb="${pdb%.*}"
 
@@ -17,5 +18,5 @@ cd $outpath
 	
 grep -sq "reported success" $strip_pdb'_relax.log'
 if [ $? -gt 0 ]; then
-	~/Rosetta/main/source/bin/rosetta_scripts.static.linuxgccrelease -database ~/Rosetta/main/database -ex1 -ex2 -extrachi_cutoff 1 -use_input_sc -s $path'/'$pdb -parser:protocol ~/CADRES/DecoyDiscrimination/Rosetta/xml/min.xml -score:weights talaris2014 -in:file:native $native_path -nblist_autoupdate > $strip_pdb'_relax.log' 
+	~/Rosetta/main/source/bin/rosetta_scripts.static.linuxgccrelease -database ~/Rosetta/main/database -ex1 -ex2 -extrachi_cutoff 1 -use_input_sc -s $path'/'$pdb -parser:protocol ~/CADRES/DecoyDiscrimination/Rosetta/xml/min.xml -score:weights $scorefxn  -parser:script_vars SCORE=$scorefxn -in:file:native $native_path -nblist_autoupdate > $strip_pdb'_relax.log' 
 fi

@@ -1,5 +1,6 @@
 <ROSETTASCRIPTS>
       <SCOREFXNS>
+                <myscore weights="%%SCORE%%" />
       </SCOREFXNS>
       <TASKOPERATIONS>
          <InitializeFromCommandline name=init/>
