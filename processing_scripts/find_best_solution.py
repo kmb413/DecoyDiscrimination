@@ -6,6 +6,7 @@ from customIO import scorefileparse
 from customIO import discparse
 from plot import conv
 from plot import scatterplot
+from plot import line
 import argparse
 
 def dominates(row, rowCandidate):
@@ -59,7 +60,11 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
     cleared_d = dict(cleared)
     print cleared_d
     min_tuple = { "All" : (1000,1000,60), "ParetoRA" : (1000,1000,60), "Rosetta" : (1000,1000,60), "Amber" : (1000,60,60) }
-    min_naive = { "All" : [], "Pareto-Amber" : [], "Pareto-Rosetta" : [], "Rosetta" : [], "Amber" : [], "Pareto" : []  }
+    min_naive = { "All" : [], "Rosetta" : [], "Amber" : []  }
+
+    for i in range(1, 11):
+        w = i * 0.1
+        
 
     color = []
     for (e1, e2), r in zip(pts,r1):
@@ -89,20 +94,19 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
             color.append((255,255,51)) #yellow
 
     #assign min_naive
-    pareto_amber_min_e2 = min([  e2 for e1,e2 in cleared_d.items() ])
-    pareto_rosetta_min_e1 = min([  e1 for e1,e2 in cleared_d.items() ])
     rosetta_min_e1 = min([  e1 for e1,e2 in pts if e1 <= 10 ])
     amber_min_e2 = min([  e2 for e1,e2 in pts if e2 <= 10 ])
-    pareto_equal_min_e1e2 = min([ e1+e2 for e1,e2 in cleared_d.items() ])
 
     pts_r = zip(d1e_ranks,d2e_ranks,r1)
 
     min_naive["All"] = [min_tuple["All"]]
-    min_naive["Pareto-Amber"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if pareto_amber_min_e2 == amber ]
-    min_naive["Pareto-Rosetta"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if pareto_rosetta_min_e1 == rosetta ]
     min_naive["Rosetta"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if rosetta_min_e1 == rosetta ]
     min_naive["Amber"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if amber_min_e2 == amber ]
-    min_naive["Pareto"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if amber+rosetta == pareto_equal_min_e1e2 ]
+    for i in range(1, 11):
+        w = i * 0.1
+	key = "Pareto{0}".format(i)
+	pareto_equal_min = min([ e1+e2*w for e1,e2 in cleared_d.items() ])
+        min_naive[key] =  [ (rosetta,amber,r) for rosetta,amber, r in pts_r if amber*w+rosetta == pareto_equal_min ]
 
     color_converted = [ (c[0]/255.0, c[1]/255.0, c[2]/255.0) if hasattr(c, "__iter__") else '' for c in color ] 
 
@@ -120,6 +124,8 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
         for e1, e2, r in l_tuples:
             s += " {0:.0f},{1:.0f},{2:.1f}".format(e1, e2, r, )
     print s
+
+    return min_naive
 
 def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff ):
     #read in and rename arguments
@@ -153,6 +159,8 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff ):
 
     fig, axarr = conv.create_ax(2, len(dec_inter1))
 
+    line_plot_data = {}
+
     for x_ind,pdb in enumerate(sorted(dec_inter1.keys())):
 
         ax = axarr[x_ind, 0] 
@@ -161,13 +169,23 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff ):
 
         ax = axarr[x_ind, 1]
 
-        plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1, title2)
+        min_naive = plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1, title2)
+	
+        for k, data in min_naive.items():
+	     if line_plot_data.get(key) is None:
+	         line_plot_data[key] = ([],[])
+             line_plot_data[key][0].append(pdb)
+             line_plot_data[key][1].append(data[2])
+
 
     filename = input_dir_1 + "/" + title1 + "_" + title2 + ".txt"   
 
     suffix="rmsd_v_rmsd_{0}".format(rmsd_cutoff)
  
     conv.save_fig(fig, filename, suffix, 7, len(dec_inter1)*3)
+
+    fig2, axarr2 = conv.create_ax(1, 1)
+    line.draw_actual_plot(axarr2[0,0], lines, "RMSD vs. pdb", "PDB", "RMSD")
  
 if __name__ == "__main__":
 
