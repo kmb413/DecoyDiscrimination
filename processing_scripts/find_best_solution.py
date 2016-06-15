@@ -7,7 +7,9 @@ from customIO import discparse
 from plot import conv
 from plot import scatterplot
 from plot import line
+from plot import hist
 import argparse
+from matplotlib import colors
 
 def dominates(row, rowCandidate):
     return all(r <= rc for r, rc in zip(row, rowCandidate))
@@ -58,7 +60,7 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
     cleared, dominated = cull(pts, dominates)
 
     cleared_d = dict(cleared)
-    print cleared_d
+    
     min_tuple = { "All" : (1000,1000,60), "ParetoRA" : (1000,1000,60), "Rosetta" : (1000,1000,60), "Amber" : (1000,60,60) }
     min_naive = { "All" : [], "Rosetta" : [], "Amber" : []  }
 
@@ -99,14 +101,15 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
 
     pts_r = zip(d1e_ranks,d2e_ranks,r1)
 
-    min_naive["All"] = [min_tuple["All"]]
-    min_naive["Rosetta"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if rosetta_min_e1 == rosetta ]
-    min_naive["Amber"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if amber_min_e2 == amber ]
+    min_naive["All"] = min_tuple["All"]
+    min_naive["Rosetta"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if rosetta_min_e1 == rosetta ][0]
+    min_naive["Amber"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if amber_min_e2 == amber ][0]
     for i in range(1, 11):
         w = i * 0.1
 	key = "Pareto{0}".format(i)
 	pareto_equal_min = min([ e1+e2*w for e1,e2 in cleared_d.items() ])
-        min_naive[key] =  [ (rosetta,amber,r) for rosetta,amber, r in pts_r if amber*w+rosetta == pareto_equal_min ]
+        list_pts =  [ (rosetta,amber,r) for rosetta,amber, r in pts_r if amber*w+rosetta == pareto_equal_min ]
+        min_naive[key] = find_lowest_point( list_pts )
 
     color_converted = [ (c[0]/255.0, c[1]/255.0, c[2]/255.0) if hasattr(c, "__iter__") else '' for c in color ] 
 
@@ -116,18 +119,24 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
     for k, (e1, e2, r) in min_tuple.items():
         s += ("\t{3} {0:.0f},{1:.0f},{2:.1f}".format(e1, e2, r, k))
 
-    print s
+    #print s
 
     s = "{0}\t2".format(pdb)
-    for k, l_tuples in min_naive.items():
+    for k, (e1, e2, r) in min_naive.items():
         s += "\t{0}".format(k)
-        for e1, e2, r in l_tuples:
-            s += " {0:.0f},{1:.0f},{2:.1f}".format(e1, e2, r, )
-    print s
+        s += " {0:.0f},{1:.0f},{2:.1f}".format(e1, e2, r)
+    #print s
 
     return min_naive
 
-def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff ):
+def find_lowest_point( list_pts ):
+    first_rank_list = [ p[0] for p in list_pts ]
+    second_rank_list = [ p[1] for p in list_pts ]
+    min_rank = min(first_rank_list + second_rank_list)
+    min_point = [ (e1, e2, r) for e1, e2, r in list_pts if min_rank == e1 or min_rank == e2 ][0]
+    return min_point
+
+def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff, output_pre ):
     #read in and rename arguments
     title1 = os.path.basename(input_dir_1)
     title2 = os.path.basename(input_dir_2)
@@ -161,6 +170,8 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff ):
 
     line_plot_data = {}
 
+    min_naive_by_pdb = {}
+
     for x_ind,pdb in enumerate(sorted(dec_inter1.keys())):
 
         ax = axarr[x_ind, 0] 
@@ -170,23 +181,88 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff ):
         ax = axarr[x_ind, 1]
 
         min_naive = plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1, title2)
-	
-        for k, data in min_naive.items():
+	keys_to_include = ["Amber", "Rosetta","All","Pareto10"]
+        for key, (rank1, rank2, rmsd) in min_naive.items():
+	     #if key not in keys_to_include:
+	     #    continue
 	     if line_plot_data.get(key) is None:
 	         line_plot_data[key] = ([],[])
-             line_plot_data[key][0].append(pdb)
-             line_plot_data[key][1].append(data[2])
+       	     line_plot_data[key][0].append(pdb)
+	     line_plot_data[key][1].append(rmsd)
+	     if min_naive_by_pdb.get(pdb) is None:
+                 min_naive_by_pdb[pdb] = {}
+             min_naive_by_pdb[pdb][key] = rmsd
 
+    indices = list(range(len(line_plot_data["All"][1])))
+    indices.sort(key=lambda x: line_plot_data["All"][1][x])
+    
+    ranked_pdbs_by_rmsd_all = {}
 
-    filename = input_dir_1 + "/" + title1 + "_" + title2 + ".txt"   
+    for i, x in enumerate(indices):
+        ranked_pdbs_by_rmsd_all[line_plot_data["All"][0][x]] = i
 
-    suffix="rmsd_v_rmsd_{0}".format(rmsd_cutoff)
+    for label, (pdbs, rmsds) in line_plot_data.items():
+	line_plot_data[label] = tuple(zip(*sorted(zip(pdbs,rmsds), key=lambda x: ranked_pdbs_by_rmsd_all[x[0]] )))    
+
+    filename = output_pre + "/" + title1 + "_" + title2 + ".txt"   
+    
+    #suffix="rmsd_v_rmsd_{0}".format(rmsd_cutoff)
  
-    conv.save_fig(fig, filename, suffix, 7, len(dec_inter1)*3)
+    #conv.save_fig(fig, filename, suffix, 7, len(dec_inter1)*3)
 
-    fig2, axarr2 = conv.create_ax(1, 1)
-    line.draw_actual_plot(axarr2[0,0], lines, "RMSD vs. pdb", "PDB", "RMSD")
- 
+
+    ordered_labels = ["All", "Amber", "Rosetta", "Pareto1", "Pareto2", "Pareto3", "Pareto4", "Pareto5", "Pareto6", "Pareto7", "Pareto8", "Pareto9", "Pareto10"]
+    lines = [ (line_plot_data[label][0], line_plot_data[label][1], label) for label in ordered_labels ]
+
+    fig2, axarr2 = conv.create_ax(1, len(ordered_labels), shx=True, shy=True)
+
+    for i, label in enumerate(ordered_labels):
+
+        line.draw_actual_plot(axarr2[i,0], lines[0:i+1], "RMSD vs. pdb", "PDB", "RMSD")
+    
+    conv.save_fig(fig2, filename, "_line", 10, len(ordered_labels)*5)
+
+
+    hist_comp = [ ("Amber","All"), ("Rosetta", "All"), ("Pareto10", "All"), ("Pareto1", "Rosetta"), ("Pareto2", "Rosetta"),
+                  ("Pareto3","Rosetta"), ("Pareto4","Rosetta"), ("Pareto5","Rosetta"), ("Pareto6","Rosetta"), ("Pareto7","Rosetta"),
+                  ("Pareto8","Rosetta"), ("Pareto9","Rosetta"), ("Pareto10","Rosetta"), ("Pareto1", "Amber"), ("Pareto2", "Amber"),
+                  ("Pareto3","Amber"), ("Pareto4","Amber"), ("Pareto5","Amber"), ("Pareto6","Amber"), ("Pareto7","Amber"),
+                  ("Pareto8","Amber"), ("Pareto9","Amber"), ("Pareto10","Amber")]
+
+    fig3, axarr3 = conv.create_ax(2, len(hist_comp), shx=False, shy=False)
+
+    for ind, (top, bottom) in enumerate(hist_comp):
+        gen_dist_plot(axarr3[ind,0], axarr3[ind,1], top, bottom, min_naive_by_pdb)
+
+    conv.save_fig(fig3, filename, "_distdeltas", 7, len(hist_comp)*5)
+
+def gen_dist_plot(ax1, ax2, top, bottom, min_naive_by_pdb):
+
+    deltas = get_dist_deltas(top, bottom, min_naive_by_pdb)
+
+    hist.draw_actual_plot(ax1, deltas, top + " - " + bottom, "Deltas", "Frequency")
+
+    counts_equal = sum([1 for d in deltas if d < 0.5 and d > -0.5 ])
+    counts_rescued = sum([1 for d in deltas if d < -2.0 ])
+    counts_worse = sum([1 for d in deltas if d > 2.0 ])
+
+    size = len(deltas)
+
+    text = "Total: {0}\nSimilar: {1}\nRescued: {2}\nWorse: {3}".format(size, counts_equal, counts_rescued, counts_worse)
+
+    ax2.text(0.5, 0.5, text,
+           horizontalalignment='center',
+           verticalalignment='center',
+           fontsize=10, color='red',
+           transform=ax2.transAxes)
+
+def get_dist_deltas(top, bottom, min_naive_by_pdb):
+    dists = []
+    for pdb, dict_rmsds in min_naive_by_pdb.items(): 
+        dists.append( dict_rmsds[top] - dict_rmsds[bottom] )
+
+    return dists
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description=__doc__)
@@ -199,4 +275,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.input_dir[0][0], args.input_dir[0][1], args.input_dir[1][0], args.input_dir[1][1], args.rmsd_cutoff)
+    main(args.input_dir[0][0], args.input_dir[0][1], args.input_dir[1][0], args.input_dir[1][1], args.rmsd_cutoff, args.output_pre)
