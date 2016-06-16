@@ -106,8 +106,12 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
     min_naive["Amber"] = [ (rosetta,amber,r) for rosetta,amber,r in pts_r if amber_min_e2 == amber ][0]
     for i in range(1, 11):
         w = i * 0.1
-	key = "Pareto{0}".format(i)
-	pareto_equal_min = min([ e1+e2*w for e1,e2 in cleared_d.items() ])
+        key = "ParetoR{0}".format(i)
+        pareto_equal_min = min([ e1*w+e2 for e1,e2 in cleared_d.items() ])
+        list_pts =  [ (rosetta,amber,r) for rosetta,amber, r in pts_r if amber+rosetta*w == pareto_equal_min ]
+        min_naive[key] = find_lowest_point( list_pts )
+        key = "ParetoA{0}".format(i)
+        pareto_equal_min = min([ e1+e2*w for e1,e2 in cleared_d.items() ])
         list_pts =  [ (rosetta,amber,r) for rosetta,amber, r in pts_r if amber*w+rosetta == pareto_equal_min ]
         min_naive[key] = find_lowest_point( list_pts )
 
@@ -122,10 +126,15 @@ def plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1,
     #print s
 
     s = "{0}\t2".format(pdb)
+    keys_to_include = ["All", "Amber", "Rosetta", "ParetoR10"]
     for k, (e1, e2, r) in min_naive.items():
+        if k not in keys_to_include:
+            continue
         s += "\t{0}".format(k)
-        s += " {0:.0f},{1:.0f},{2:.1f}".format(e1, e2, r)
-    #print s
+        #s += " {0:.0f},{1:.0f},{2:.1f}".format(e1, e2, r)
+        s += " {0:.1f}".format(r)
+
+    print s
 
     return min_naive
 
@@ -181,7 +190,7 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff, output_p
         ax = axarr[x_ind, 1]
 
         min_naive = plot_pareto(dec_inter1, dec_inter2, nat_inter1, nat_inter2, ax, pdb, title1, title2)
-	keys_to_include = ["Amber", "Rosetta","All","Pareto10"]
+        keys_to_include = ["Amber", "Rosetta","All","Pareto10"]
         for key, (rank1, rank2, rmsd) in min_naive.items():
 	     #if key not in keys_to_include:
 	     #    continue
@@ -193,6 +202,7 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff, output_p
                  min_naive_by_pdb[pdb] = {}
              min_naive_by_pdb[pdb][key] = rmsd
 
+    #organize data
     indices = list(range(len(line_plot_data["All"][1])))
     indices.sort(key=lambda x: line_plot_data["All"][1][x])
     
@@ -210,31 +220,62 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff, output_p
  
     #conv.save_fig(fig, filename, suffix, 7, len(dec_inter1)*3)
 
+    #plot line plot
+    all_pareto_labels = []
 
-    ordered_labels = ["All", "Amber", "Rosetta", "Pareto1", "Pareto2", "Pareto3", "Pareto4", "Pareto5", "Pareto6", "Pareto7", "Pareto8", "Pareto9", "Pareto10"]
-    lines = [ (line_plot_data[label][0], line_plot_data[label][1], label) for label in ordered_labels ]
+    for initial in ["R","A"]:
+        ordered_labels = ["All", "Amber", "Rosetta"]
+        for i in range(1,11):
+            ordered_labels.append("Pareto{0}{1}".format(initial,i))
+            all_pareto_labels.append("Pareto{0}{1}".format(initial,i))
+        
+        lines = [ (line_plot_data[label][0], line_plot_data[label][1], label) for label in ordered_labels ]
 
-    fig2, axarr2 = conv.create_ax(1, len(ordered_labels), shx=True, shy=True)
+        fig2, axarr2 = conv.create_ax(1, len(ordered_labels), shx=True, shy=True)
 
-    for i, label in enumerate(ordered_labels):
+        for i, label in enumerate(ordered_labels):
 
-        line.draw_actual_plot(axarr2[i,0], lines[0:i+1], "RMSD vs. pdb", "PDB", "RMSD")
+            line.draw_actual_plot(axarr2[i,0], lines[0:i+1], "RMSD vs. pdb", "PDB", "RMSD")
     
-    conv.save_fig(fig2, filename, "_line", 10, len(ordered_labels)*5)
+            conv.add_legend(axarr2[i,0])
+        conv.save_fig(fig2, filename, "_line_{0}".format(initial), 10, len(ordered_labels)*5)
 
+    #plot histogram plot
 
-    hist_comp = [ ("Amber","All"), ("Rosetta", "All"), ("Pareto10", "All"), ("Pareto1", "Rosetta"), ("Pareto2", "Rosetta"),
-                  ("Pareto3","Rosetta"), ("Pareto4","Rosetta"), ("Pareto5","Rosetta"), ("Pareto6","Rosetta"), ("Pareto7","Rosetta"),
-                  ("Pareto8","Rosetta"), ("Pareto9","Rosetta"), ("Pareto10","Rosetta"), ("Pareto1", "Amber"), ("Pareto2", "Amber"),
-                  ("Pareto3","Amber"), ("Pareto4","Amber"), ("Pareto5","Amber"), ("Pareto6","Amber"), ("Pareto7","Amber"),
-                  ("Pareto8","Amber"), ("Pareto9","Amber"), ("Pareto10","Amber")]
+    hist_comp = [ ("Amber","All"), ("Rosetta", "All"), ("ParetoR10", "All"), ("ParetoA10", "All")]
+
+    hist_comp.extend([ ("ParetoR{0}".format(ind),"Rosetta") for ind in range(1,11) ])
+    hist_comp.extend([ ("ParetoR{0}".format(ind),"Amber") for ind in range(1,11) ])
+    hist_comp.extend([ ("ParetoA{0}".format(ind),"Rosetta") for ind in range(1,11) ])
+    hist_comp.extend([ ("ParetoA{0}".format(ind), "Amber") for ind in range(1,11) ])
 
     fig3, axarr3 = conv.create_ax(2, len(hist_comp), shx=False, shy=False)
 
     for ind, (top, bottom) in enumerate(hist_comp):
         gen_dist_plot(axarr3[ind,0], axarr3[ind,1], top, bottom, min_naive_by_pdb)
 
-    conv.save_fig(fig3, filename, "_distdeltas", 7, len(hist_comp)*5)
+    conv.save_fig(fig3, filename, "_distdeltas", 7, len(hist_comp)*5, tight=False)
+
+    #plot scatterplot
+    fig4, axarr4 = conv.create_ax(10, 2)
+    for i in range(1,11):
+        gen_scatterplot(axarr4[0,i-1], "ParetoR{0}".format(i), "Rosetta", "Amber", min_naive_by_pdb)
+        gen_scatterplot(axarr4[1,i-1], "ParetoA{0}".format(i), "Rosetta", "Amber", min_naive_by_pdb)
+
+    conv.save_fig(fig4, filename, "_scattdeltas", 30, 6)
+
+def gen_scatterplot(ax, x_axis, y_axis, z_axis, min_naive_by_pdb):
+    x_deltas = get_dist_deltas(x_axis, "All", min_naive_by_pdb)
+    y_deltas = get_dist_deltas(y_axis, "All", min_naive_by_pdb)
+    z_deltas = get_dist_deltas(z_axis, "All", min_naive_by_pdb)
+    #c_deltas = get_dist_deltas("All", None, min_naive_by_pdb)
+
+    scatterplot.draw_actual_plot(ax, x_deltas, y_deltas, 'k', x_axis, x_axis + " Delta to Min RMSD (A)", "Delta to Min RMSD (A)", size=15, label=y_axis)
+    scatterplot.draw_actual_plot(ax, x_deltas, z_deltas, 'r', x_axis, x_axis + " Delta to Min RMSD (A)", "Delta to Min RMSD (A)", size=15, label=z_axis)
+
+    scatterplot.add_x_y_line(ax)
+
+    conv.add_legend(ax)
 
 def gen_dist_plot(ax1, ax2, top, bottom, min_naive_by_pdb):
 
@@ -258,8 +299,12 @@ def gen_dist_plot(ax1, ax2, top, bottom, min_naive_by_pdb):
 
 def get_dist_deltas(top, bottom, min_naive_by_pdb):
     dists = []
-    for pdb, dict_rmsds in min_naive_by_pdb.items(): 
-        dists.append( dict_rmsds[top] - dict_rmsds[bottom] )
+    for pdb, dict_rmsds in min_naive_by_pdb.items():
+        if bottom is None:
+            b = 0
+        else:
+            b = dict_rmsds[bottom] 
+        dists.append( dict_rmsds[top] - b )
 
     return dists
 
