@@ -3,13 +3,8 @@
 import os
 import sys
 from customIO import scorefileparse
-from customIO import discparse
-from plot import conv
-from plot import scatterplot
-from plot import line
-from plot import hist
 import argparse
-from matplotlib import colors
+from shutil import copyfile
 
 def dominates(row, rowCandidate):
     return all(r <= rc for r, rc in zip(row, rowCandidate))
@@ -38,7 +33,7 @@ def gen_ranks(list_energies):
         output[x] = i
     return output
 
-def find_pareto(dec_inter1, dec_inter2, ax, pdb):
+def find_pareto(dec_inter1, dec_inter2, pdb):
 
     d1e = scorefileparse.get_energies(dec_inter1[pdb])
     d2e = scorefileparse.get_energies(dec_inter2[pdb])
@@ -70,39 +65,62 @@ def find_lowest_point( list_pts ):
     min_point = [ key for e1, e2, r, key in list_pts if min_rank == e1 or min_rank == e2 ][0]
     return min_point
 
-def main(input_dir_1, scoretype1, input_dir_2, scoretype2, output_pre ):
-    #read in and rename arguments
-    title1 = os.path.basename(input_dir_1)
-    title2 = os.path.basename(input_dir_2)
+def find_lowest_energy( score_dict ):
+    #sorts dict by first item in tuple (energies), retrieves lowest energy item and extracts its key (filename)
+    lowest_energy_key = sorted(score_dict.items(), key=lambda x: x[1][0])[0][0]
 
-    d1 = scorefileparse.read_dir(input_dir_1, scoretype1, repl_orig=False)
-    d2 = scorefileparse.read_dir(input_dir_2, scoretype2, repl_orig=False)
+def main(input_dir_rosetta_sf, input_dir_amber_sf, input_dir_rosetta_pdb, input_dir_amber_pdb, output_dir, n_results):
+
+    d1 = scorefileparse.read_dir(input_dir_rosetta_sf, 'rosetta', repl_orig=True)
+    d2 = scorefileparse.read_dir(input_dir_amber_sf, 'amber', repl_orig=True)
 
     dec_norm1 = scorefileparse.norm_pdbs(d1)
     dec_norm2 = scorefileparse.norm_pdbs(d2)
 
     [dec_inter1, dec_inter2] = scorefileparse.pdbs_scores_intersect([dec_norm1, dec_norm2])       
 
-    line_plot_data = {}
+    dec1_cp = copy.deepcopy(dec_inter1)
+    dec2_cp = copy.deepcopy(dec_inter2)
 
     min_naive_by_pdb = {}
 
-    for x_ind,pdb in enumerate(sorted(dec_inter1.keys())):
+    for pdb in sorted(dec_inter1.keys()):
+        for i in range(1,n_results+1):
+            rosetta_lowest_energy = find_lowest_energy( dec_inter1[pdb] )
+            amber_lowest_energy = find_lowest_energy( dec_inter2[pdb] )
+            pareto_lowest_energy = find_pareto(dec1_cp, dec2_cp, pdb)
 
-        min_naive_by_pdb[key] = find_pareto(dec_inter1, dec_inter2, ax, pdb)
+            #copy rosetta file
+            src = os.join(input_dir_rosetta_pdb, pdb, rosetta_lowest_energy + "_0001.pdb")
+            dst = os.join(output_dir,"rosetta","{0}_{1}.pdb".format(pdb,i)) 
+            copyfile(src, dst)
+            #copy amber file
+            src = os.join(input_dir_rosetta_pdb, pdb, "min_NoH_" + amber_lowest_energy + ".pdb")
+            dst = os.join(output_dir,"amber","{0}_{1}.pdb".format(pdb,i))
+            copyfile(src, dst)
+            #copy pareto file
+            src = os.join(input_dir_rosetta_pdb, pdb, pareto_lowest_energy + "_0001.pdb")
+            dst = os.join(output_dir,"combined","{0}_{1}.pdb".format(pdb,i))
+            copyfile(src, dst)
+
+            #delete from original scoredict so that next round will get the next-lowest
+            dec_inter1[pdb].pop(rosetta_lowest_energy)
+            dec_inter2[pdb].pop(amber_lowest_energy)
+            dec1_cp[pdb].pop(pareto_lowest_energy)
+            dec2_cp[pdb].pop(pareto_lowest_energy)
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument ('--input_dir_rosetta_sf', help="directory for rosetta input score files")
     parser.add_argument ('--input_dir_amber_sf', help="directory for amber input score files")
-    parser.add_argument ('--input_dir_rosetta_sf', help="directory for rosetta input score files")
-    parser.add_argument ('--input_dir_amber_sf', help="directory for amber input score files")
+    parser.add_argument ('--input_dir_rosetta_pdb', help="directory for rosetta input pdbs")
+    parser.add_argument ('--input_dir_amber_pdb', help="directory for amber input pdbs")
 
-    parser.add_argument('--output_pre', help='prefix for output figure')
+    parser.add_argument('--output_dir', help='directory for output structures')
+
+    parser.add_argument('--n_results', type=float help='number of lowest-scoring results to copy')
     
-    parser.add_argument('--output_pre', help='prefix for output figure')
-
     args = parser.parse_args()
 
-    main(args.input_dir[0][0], args.input_dir[0][1], args.input_dir[1][0], args.input_dir[1][1], args.output_pre)
+    main(args.input_dir_rosetta_sf, args.input_dir_amber_sf, args.input_dir_rosetta_pdb, args.input_dir_amber_pdb, args.output_dir, args.n_results)

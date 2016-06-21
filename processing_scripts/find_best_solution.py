@@ -235,7 +235,7 @@ def main(input_dir_1, scoretype1, input_dir_2, scoretype2, rmsd_cutoff, output_p
 
         for i, label in enumerate(ordered_labels):
 
-            line.draw_actual_plot(axarr2[i,0], lines[0:i+1], "RMSD vs. pdb", "PDB", "RMSD")
+            line.plot_series(axarr2[i,0], lines[0:i+1], "RMSD vs. pdb", "PDB", "RMSD", linestyle='')
     
             conv.add_legend(axarr2[i,0])
         conv.save_fig(fig2, filename, "_line_{0}".format(initial), 10, len(ordered_labels)*5)
