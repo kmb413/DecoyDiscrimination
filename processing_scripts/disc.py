@@ -10,7 +10,7 @@ import gzip
 import bz2
 
 
-def calculate_disc( argv, disc_divs):
+def main( argv, disc_divs):
   non_numerical_cols = [
   "aln_id",
   "user_tag",
@@ -422,4 +422,4 @@ def run_disc(argv):
 
 
 if __name__ == "__main__":
-   main(sys.argv[1])
+   main(sys.argv[0])

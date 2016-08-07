@@ -22,7 +22,7 @@ def plot(disc_metrics_1, disc_metrics_2, title1, title2, output_pre, add_slash=T
             x.append(disc_metrics_1[pdb][metric_name])
             y.append(disc_metrics_2[pdb][metric_name])
 
-        scatterplot.draw_actual_plot(ax, x, y, 'b', metric_name, title1,title2)
+        scatterplot.draw_actual_plot(ax, x, y, 'b', metric_name, title1,title2, size=20, edgecolors='k')
         scatterplot.plot_regression(ax,x,y,False)
 
     if add_slash:
@@ -31,7 +31,7 @@ def plot(disc_metrics_1, disc_metrics_2, title1, title2, output_pre, add_slash=T
 	filename = output_pre + title1 + "_" + title2 + ".txt"
     suffix="disc_v_disc"
  
-    conv.save_fig(fig, filename, suffix, n_metrics*3, 3)
+    conv.save_fig(fig, filename, suffix, n_metrics*3, 3, size=9)
 
 def main(input_dir, output_pre, repl_orig):
     #read in and rename arguments
@@ -40,16 +40,12 @@ def main(input_dir, output_pre, repl_orig):
 
     d1 = scorefileparse.read_dir(input_dir[0][0], input_dir[0][1], repl_orig)
     d2 = scorefileparse.read_dir(input_dir[1][0], input_dir[1][1], repl_orig)
-    print sorted(d1["1jbe"].keys())[0:10]
-    print sorted(d2["1jbe"].keys())[0:10]
     [dec_inter1, dec_inter2] = scorefileparse.pdbs_scores_intersect([d1, d2])       
-    print len(dec_inter1)
-    print len(dec_inter2)
-    print dec_inter1["1jbe"].keys()
-    print dec_inter2["1jbe"].keys()
     disc_metrics_1 = discparse.pdbs_dict_to_metrics(dec_inter1,input_dir[0][1])
     disc_metrics_2 = discparse.pdbs_dict_to_metrics(dec_inter2,input_dir[1][1])
-
+    print len(dec_inter1)
+    print len(dec_inter2)
+    print disc_metrics_2
     plot(disc_metrics_1, disc_metrics_2, title1, title2, output_pre)
  
 if __name__ == "__main__":
