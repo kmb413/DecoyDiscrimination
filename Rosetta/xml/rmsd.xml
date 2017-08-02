@@ -1,13 +1,13 @@
 <ROSETTASCRIPTS>
       <SCOREFXNS>
-                <myscore weights="%%SCORE%%" />
+                <ScoreFunction name="myscore" weights="%%SCORE%%" />
       </SCOREFXNS>
       <TASKOPERATIONS>
-         <InitializeFromCommandline name=init/>
+         <InitializeFromCommandline name="init"/>
 
       </TASKOPERATIONS>
       <FILTERS>
-	<Rmsd name=rmsd threshold=100 superimpose=1 > 
+	<Rmsd name="rmsd" threshold="100" superimpose="1" > 
 	</Rmsd>
       </FILTERS>
 
@@ -17,6 +17,6 @@
 	</APPLY_TO_POSE>
 
       <PROTOCOLS>
-              <Add filter_name=rmsd/>
+              <Add filter_name="rmsd"/>
       </PROTOCOLS>
 </ROSETTASCRIPTS>
