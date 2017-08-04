@@ -18,7 +18,7 @@ python correlate_ranks.py --rosetta_decoy ../pdb/1sen/empty_tag_9156_0001_0001.p
 
 python PerformAnalysis.py --input_pdb 3cx2 --decoy_set 1 --decoy_names_rosetta empty_tag_10857_0001 --decoy_names_rosetta empty_tag_507_0003 --decoy_names_rosetta empty_tag_5357_0001 --decoy_names_rosetta empty_tag_552_0011 --decoy_names_rosetta empty_tag_6007_0001 --decoy_names_rosetta empty_tag_9514_0001 --decoy_names_amber empty_tag_10086_0001 --decoy_names_amber empty_tag_5371_0001 
 
-#turn adjust_text off and rotation=90, width 4, height 4
+#turn adjust_text off and rotation=90, width 3.5, height 3.5
 python PlotPNear.py --input_dir ../score_files/decoys.all0_Rosetta_min/ "rosetta" --input_dir ../score_files/decoys.all0_Amber_min/ "amber" --output_pre ../plots/ --x_axis "talaris2014" --y_axis "Amber"
 python PlotPNear.py --input_dir ../score_files/decoys.all0_Rosetta_relax_beta/ "rosetta" --input_dir ../score_files/decoys.all0_Amber_min/ "amber" --output_pre ../plots/ --x_axis "REF2015" --y_axis "Amber"
 

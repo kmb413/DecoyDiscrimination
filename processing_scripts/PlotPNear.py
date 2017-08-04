@@ -35,6 +35,9 @@ def plot(disc_metrics_1, disc_metrics_2, title1, title2, output_pre, add_slash=F
     else:
         filename = output_pre + title1 + "_" + title2 + ".txt"
     suffix="disc_v_disc"
+
+    ax.set_xlim([0, 1.0])
+    ax.set_ylim([0, 1.0])  
  
     conv.save_fig(fig, filename, suffix, 3.5, 3.5, size=10)
 
