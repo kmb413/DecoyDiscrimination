@@ -1,17 +1,17 @@
 <ROSETTASCRIPTS>
       <SCOREFXNS>
-     		<myscore weights="%%SCORE%%" />
+     		<ScoreFunction name="myscore" weights="%%SCORE%%" />
 	</SCOREFXNS>
       <TASKOPERATIONS>
       </TASKOPERATIONS>
 
       <FILTERS>      
-        <Rmsd name=rmsd threshold=100 superimpose=1 >
+        <Rmsd name="rmsd" threshold="100" superimpose="1" >
         </Rmsd>
       </FILTERS>
 
       <MOVERS>
-        <MinMover name=min_sc_bb scorefxn=myscore chi=1 bb=1 tolerance=0.0001 max_iter=2000 type=lbfgs_armijo_nonmonotone >
+        <MinMover name="min_sc_bb" scorefxn="myscore" chi="1" bb="1" tolerance="0.0001" max_iter="2000" type="lbfgs_armijo_nonmonotone" >
         </MinMover>       
 
       </MOVERS>
@@ -19,7 +19,7 @@
 </APPLY_TO_POSE>
 
       <PROTOCOLS>
-              <Add mover_name=min_sc_bb/>
-	      <Add filter_name=rmsd/>
+              <Add mover_name="min_sc_bb"/>
+	      <Add filter_name="rmsd"/>
 </PROTOCOLS>
 </ROSETTASCRIPTS>
