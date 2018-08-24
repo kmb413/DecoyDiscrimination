@@ -28,7 +28,7 @@ def plot(disc_metrics_1, disc_metrics_2, title1, title2, output_pre, add_slash=F
             x.append(disc_metrics_1[pdb][metric_name])
             y.append(disc_metrics_2[pdb][metric_name])
         scatterplot.draw_actual_plot(ax, x, y, 'b', "", title1,title2, size=10, edgecolors='k')
-        scatterplot.plot_regression(ax,x,y,False, label_corr=False, labels=pdbs)
+        scatterplot.plot_regression(ax,x,y,False, label_corr=False)#, labels=pdbs)
 
     if add_slash:
         filename = output_pre + "/" + title1 + "_" + title2 + ".txt"
